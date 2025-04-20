@@ -18,6 +18,62 @@
             flex-direction: column; /* Stack canvas and controls vertically */
             overflow: hidden; /* Prevent scrollbars */
         }
+
+        /* Start Screen Styles */
+        #startScreenContent {
+            display: block; /* Initially visible */
+        }
+
+        #startScreenContent h2 {
+            font-size: 20px;
+            margin-bottom: 25px;
+            color: #fff;
+        }
+
+        #startScreenContent div {
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        #startScreenContent label {
+            display: inline-block;
+            margin: 5px 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #startScreenContent input[type="radio"],
+        #startScreenContent input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+            transform: scale(1.2);
+        }
+
+        #themeSelect {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            padding: 8px;
+            margin-top: 8px;
+            background-color: #444;
+            color: white;
+            border: 2px solid #666;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+        }
+
+        #startButton {
+            display: block;
+            margin-top: 25px;
+            padding: 15px 30px;
+            font-size: 16px;
+            background-color: #4CAF50; /* Green */
+        }
+
+        #startButton:hover {
+            background-color: #45a049;
+        }
         canvas {
             border: 5px solid #444;
             display: block; /* Remove extra space below canvas */
@@ -58,14 +114,16 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.75); /* Slightly darker overlay */
+            background-color: rgba(0, 0, 0, 0.85); /* Darker overlay for better readability */
             color: white;
             padding: 30px; /* More padding */
             border-radius: 10px;
             font-size: 24px; /* Larger message font */
             text-align: center;
-            display: none; /* Hidden initially */
             z-index: 10; /* Ensure it's above the canvas */
+            min-width: 300px; /* Ensure minimum width for options */
+            max-width: 90vw; /* Responsive max width */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
         }
         #message button {
             margin-top: 20px; /* Space between message and button */
@@ -83,50 +141,211 @@
     </style>
 </head>
 <body>
+    <!-- Audio elements -->
+    <audio id="puffSound" src="sounds/puff.wav" preload="auto"></audio>
+    <audio id="gameOverSound" src="sounds/game-over.wav" preload="auto"></audio>
+
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
     <div id="message">
-        <span id="messageText">Game Over!</span>
-        <small>(Press SPACE or click Restart)</small>
-        <button id="restartButton">Restart</button>
+        <!-- Start Screen Content (initially visible) -->
+        <div id="startScreenContent">
+            <h2>Balloon Puff Options</h2>
+            <div>
+                <label>
+                    <input type="checkbox" id="soundToggle" checked> Sound On
+                </label>
+            </div>
+            <div>
+                Difficulty:
+                <label><input type="radio" name="difficulty" value="easy" checked> Easy</label>
+                <label><input type="radio" name="difficulty" value="normal"> Normal</label>
+                <label><input type="radio" name="difficulty" value="hard"> Hard</label>
+            </div>
+            <div>
+                Starting Theme:
+                <select id="themeSelect">
+                    <option value="mountain">Mountain</option>
+                    <option value="city">City</option>
+                    <option value="beach">Beach</option>
+                </select>
+            </div>
+            <button id="startButton">Start Game</button>
+        </div>
+
+        <!-- Game Over Content (initially hidden) -->
+        <div id="gameOverContent" style="display: none;">
+            <span id="messageText">Game Over!</span>
+            <small>(Press SPACE or click Restart)</small>
+            <button id="restartButton">Restart</button>
+        </div>
     </div>
 
     <script>
+        // --- DOM Elements ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const messageDiv = document.getElementById('message');
         const messageText = document.getElementById('messageText');
         const restartButton = document.getElementById('restartButton');
+        const startButton = document.getElementById('startButton');
+        const soundToggle = document.getElementById('soundToggle');
+        const themeSelect = document.getElementById('themeSelect');
+        const startScreenContent = document.getElementById('startScreenContent');
+        const gameOverContent = document.getElementById('gameOverContent');
+        const puffSound = document.getElementById('puffSound');
+        const gameOverSound = document.getElementById('gameOverSound');
 
-        // --- Game Configuration ---
-        const GRAVITY = 0.08;  // Reduced gravity (slower falling)
-        const LIFT = -3.5;     // Reduced lift (weaker jump)
-        const BALLOON_RADIUS = 30;
-        const OBSTACLE_WIDTH = 60;
-        const OBSTACLE_GAP = 280; // This is now the minimum height of the gap from the ground to the top of the tree
-        const OBSTACLE_SPEED = 1.8; // Slower obstacles
-        const OBSTACLE_SPAWN_RATE = 240; // Spawn obstacles less often (higher number)
-
-        // Background elements config (no changes needed here for difficulty)
-        const CLOUD_SPEED = 0.5;
-        const CLOUD_SPAWN_RATE = 300; // Frames between new clouds
-        const BIRD_SPEED = 1.5;
-        const BIRD_SPAWN_RATE = 450; // Frames between new birds
-
-        // --- Game Variables ---
+        // --- Game State ---
+        let soundEnabled = true;
+        let currentTheme;
+        let currentDifficulty = 'easy';
         let balloonY, balloonVelY;
-        let obstacles = []; // Obstacles will now only represent the bottom tree trunks
+        let obstacles = [];
         let clouds = [];
         let birds = [];
         let frameCount = 0;
         let isGameOver = false;
-        let animationFrameId; // To stop the game loop
+        let animationFrameId;
 
-        // --- Balloon Properties ---
-        const balloonColor = '#FF69B4'; // Hot Pink
+        // --- Constants ---
+        const BALLOON_RADIUS = 30;
+        const OBSTACLE_WIDTH = 60;
+        const OBSTACLE_GAP = 280;
+        const CLOUD_SPAWN_RATE = 300;
+        const BIRD_SPAWN_RATE = 450;
 
-        // --- Obstacle Properties ---
-        const trunkColor = '#8B4513'; // Saddle Brown
+        // --- Difficulty Settings ---
+        const difficulties = {
+            easy: {
+                GRAVITY: 0.08,
+                LIFT: -3.5,
+                OBSTACLE_SPEED: 1.8,
+                OBSTACLE_SPAWN_RATE: 240,
+                CLOUD_SPEED: 0.5,
+                BIRD_SPEED: 1.5
+            },
+            normal: {
+                GRAVITY: 0.1,
+                LIFT: -4,
+                OBSTACLE_SPEED: 2.2,
+                OBSTACLE_SPAWN_RATE: 200,
+                CLOUD_SPEED: 0.7,
+                BIRD_SPEED: 1.8
+            },
+            hard: {
+                GRAVITY: 0.12,
+                LIFT: -4.5,
+                OBSTACLE_SPEED: 2.6,
+                OBSTACLE_SPAWN_RATE: 180,
+                CLOUD_SPEED: 0.9,
+                BIRD_SPEED: 2.1
+            }
+        };
+
+        // --- Theme Definitions ---
+        const themes = {
+            mountain: {
+                name: 'Mountain',
+                skyColor: '#B0C4DE', // Light steel blue
+                groundColor: '#8B4513', // Saddle brown
+                groundDetailColor: '#654321', // Darker brown
+                obstacleColor: '#2F4F4F', // Dark slate gray
+                obstacleDetailColor: '#1C2F2F', // Darker slate
+                drawObstacle: (obstacle) => {
+                    // Draw rocky mountain peak
+                    ctx.fillStyle = themes.mountain.obstacleColor;
+                    ctx.beginPath();
+                    ctx.moveTo(obstacle.x, obstacle.y);
+                    ctx.lineTo(obstacle.x + OBSTACLE_WIDTH/2, obstacle.y - 30);
+                    ctx.lineTo(obstacle.x + OBSTACLE_WIDTH, obstacle.y);
+                    ctx.lineTo(obstacle.x + OBSTACLE_WIDTH, canvas.height);
+                    ctx.lineTo(obstacle.x, canvas.height);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Add rock details
+                    ctx.fillStyle = themes.mountain.obstacleDetailColor;
+                    for(let i = 0; i < 3; i++) {
+                        ctx.fillRect(
+                            obstacle.x + 10 + (i * 15),
+                            obstacle.y + 20 + (i * 25),
+                            12,
+                            8
+                        );
+                    }
+                }
+            },
+            city: {
+                name: 'City',
+                skyColor: '#4682B4', // Steel blue
+                groundColor: '#808080', // Gray
+                groundDetailColor: '#696969', // Dim gray
+                obstacleColor: '#2F4F4F', // Dark slate gray
+                obstacleDetailColor: '#1C2F2F', // Darker slate
+                drawObstacle: (obstacle) => {
+                    // Draw building
+                    ctx.fillStyle = themes.city.obstacleColor;
+                    ctx.fillRect(obstacle.x, obstacle.y, OBSTACLE_WIDTH, canvas.height - obstacle.y);
+
+                    // Add windows
+                    ctx.fillStyle = '#FFD700'; // Gold windows
+                    for(let i = 0; i < 4; i++) {
+                        for(let j = 0; j < 2; j++) {
+                            ctx.fillRect(
+                                obstacle.x + 10 + (j * 25),
+                                obstacle.y + 20 + (i * 40),
+                                15,
+                                25
+                            );
+                        }
+                    }
+                }
+            },
+            beach: {
+                name: 'Beach',
+                skyColor: '#87CEEB', // Sky blue
+                groundColor: '#F4A460', // Sandy brown
+                groundDetailColor: '#DEB887', // Burlywood
+                obstacleColor: '#228B22', // Forest green
+                obstacleDetailColor: '#006400', // Dark green
+                drawObstacle: (obstacle) => {
+                    // Draw palm tree trunk
+                    ctx.fillStyle = '#8B4513'; // Saddle brown trunk
+                    ctx.fillRect(
+                        obstacle.x + OBSTACLE_WIDTH/3,
+                        obstacle.y,
+                        OBSTACLE_WIDTH/3,
+                        canvas.height - obstacle.y
+                    );
+
+                    // Draw palm leaves
+                    ctx.fillStyle = themes.beach.obstacleColor;
+                    for(let i = 0; i < 3; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(obstacle.x + OBSTACLE_WIDTH/2, obstacle.y);
+                        ctx.quadraticCurveTo(
+                            obstacle.x + (i-1) * 30,
+                            obstacle.y - 40,
+                            obstacle.x + (i-1) * 60,
+                            obstacle.y - 20
+                        );
+                        ctx.lineTo(obstacle.x + (i-1) * 60, obstacle.y);
+                        ctx.fill();
+                    }
+                }
+            }
+        };
+
+        // --- Helper Functions ---
+        function playSound(sound) {
+            if (soundEnabled) {
+                sound.currentTime = 0;
+                sound.play().catch(error => {
+                    console.error("Error playing sound:", error);
+                });
+            }
+        }
 
         // --- Helper Functions ---
 
