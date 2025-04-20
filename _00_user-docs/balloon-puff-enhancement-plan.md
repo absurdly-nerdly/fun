@@ -135,3 +135,41 @@
     *   Sounds play when expected and respect the sound toggle.
     *   Game over state functions correctly.
     *   Restart button reloads the page, showing the start screen.
+---
+
+## Phase 5: Add Parallax Background Scenery
+
+**Goal:** Enhance visual depth and retro feel using parallax scrolling with simple shapes.
+
+1.  **Layer Structure:** Implement 3 background layers:
+    *   Layer 1 (Distant): Moves slowest.
+    *   Layer 2 (Mid-ground): Moves at a medium speed.
+    *   Layer 3 (Foreground): Moves slightly slower than the main ground/obstacles.
+
+2.  **Theme-Specific Elements (Simple Shapes):**
+    *   **Mountain Theme:**
+        *   Layer 1: Very simple, distant, lighter-colored mountain range silhouette.
+        *   Layer 2: Slightly more detailed, darker hills or foothills.
+        *   Layer 3: Occasional simple pine tree silhouettes or large rocks near the bottom edge.
+    *   **City Theme:**
+        *   Layer 1: Basic, distant skyline silhouette (rectangles).
+        *   Layer 2: Slightly more detailed buildings, maybe some simple antenna shapes.
+        *   Layer 3: Simple lamppost silhouettes or basic fence lines near the bottom.
+    *   **Beach Theme:**
+        *   Layer 1: Simple ocean horizon line, maybe a distant island silhouette.
+        *   Layer 2: Gentle wave shapes (simple curves) moving slowly.
+        *   Layer 3: Occasional simple seashell shapes or dune grass near the bottom.
+
+3.  **Data Structure:** Store background elements in separate arrays (e.g., `layer1Elements`, `layer2Elements`, `layer3Elements`). Each element needs `x`, `y`, and potentially `type` or theme-specific properties.
+
+4.  **JavaScript Implementation:**
+    *   **Global Variables:** Add layer element arrays and speed factors (e.g., `LAYER1_SPEED_FACTOR = 0.2`).
+    *   **Drawing Functions:** Create `drawLayer1()`, `drawLayer2()`, `drawLayer3()`. These will iterate through their respective arrays and draw elements using simple shapes based on `currentTheme`.
+    *   **Update Functions:** Create `updateLayer1(speed)`, `updateLayer2(speed)`, `updateLayer3(speed)`. These handle moving elements based on layer speed, spawning new elements off-screen, and removing off-screen elements.
+    *   **Modify `gameLoop()`:** Call `updateLayerX` functions early. Call `drawLayerX` functions *before* other game elements, in order (Layer 1 -> Layer 2 -> Layer 3).
+    *   **Modify `resetGame()`:** Clear layer arrays and pre-spawn initial elements for the selected theme.
+
+5.  **Refinement & Testing (Phase 6):**
+    *   Adjust layer speeds, spawning rates, and color palettes.
+    *   Test parallax effect, theme consistency, and performance.
+    *   Update the main testing section (previously Phase 4) to include parallax checks.

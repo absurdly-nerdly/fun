@@ -208,6 +208,21 @@
         let isGameOver = false;
         let animationFrameId;
 
+        // --- Parallax Background State ---
+        let layer1Elements = []; // Distant background (slowest)
+        let layer2Elements = []; // Mid-ground
+        let layer3Elements = []; // Foreground (fastest)
+
+        // --- Parallax Speed Factors (relative to obstacle speed) ---
+        const LAYER1_SPEED_FACTOR = 0.2;  // Distant layer moves at 20% speed
+        const LAYER2_SPEED_FACTOR = 0.5;  // Mid layer moves at 50% speed
+        const LAYER3_SPEED_FACTOR = 0.8;  // Front layer moves at 80% speed
+
+        // --- Parallax Spawn Rates (in frames) ---
+        const LAYER1_SPAWN_RATE = 400;    // Spawn distant elements less frequently
+        const LAYER2_SPAWN_RATE = 300;    // Mid-ground elements
+        const LAYER3_SPAWN_RATE = 200;    // Foreground elements more frequently
+
         // --- Constants ---
         const BALLOON_RADIUS = 30;
         const OBSTACLE_WIDTH = 60;
@@ -255,6 +270,14 @@
                 groundDetailColor: '#654321', // Darker brown
                 obstacleColor: '#2F4F4F', // Dark slate gray
                 obstacleDetailColor: '#1C2F2F', // Darker slate
+                // Parallax layer colors
+                layer1Color: '#8B98B0', // Distant mountains (lighter)
+                layer2Color: '#6B7890', // Mid mountains
+                layer3Color: '#4B5870', // Front mountains
+                // Element types for each layer
+                layer1Elements: ['distant-peak', 'rolling-hill'],
+                layer2Elements: ['foothill', 'cliff'],
+                layer3Elements: ['pine-tree', 'boulder'],
                 drawObstacle: (obstacle) => {
                     // Draw rocky mountain peak
                     ctx.fillStyle = themes.mountain.obstacleColor;
@@ -286,6 +309,14 @@
                 groundDetailColor: '#696969', // Dim gray
                 obstacleColor: '#2F4F4F', // Dark slate gray
                 obstacleDetailColor: '#1C2F2F', // Darker slate
+                // Parallax layer colors
+                layer1Color: '#2B4B6B', // Distant buildings (darker)
+                layer2Color: '#3B5B7B', // Mid buildings
+                layer3Color: '#4B6B8B', // Front buildings
+                // Element types for each layer
+                layer1Elements: ['skyscraper', 'tower'],
+                layer2Elements: ['building', 'antenna'],
+                layer3Elements: ['lamppost', 'fence'],
                 drawObstacle: (obstacle) => {
                     // Draw building
                     ctx.fillStyle = themes.city.obstacleColor;
@@ -312,6 +343,14 @@
                 groundDetailColor: '#DEB887', // Burlywood
                 obstacleColor: '#228B22', // Forest green
                 obstacleDetailColor: '#006400', // Dark green
+                // Parallax layer colors
+                layer1Color: '#ADD8E6', // Distant ocean/horizon
+                layer2Color: '#87CEEB', // Mid waves
+                layer3Color: '#E6C392', // Front sand features
+                // Element types for each layer
+                layer1Elements: ['horizon', 'island'],
+                layer2Elements: ['wave', 'cloud-reflection'],
+                layer3Elements: ['seashell', 'dune-grass'],
                 drawObstacle: (obstacle) => {
                     // Draw palm tree trunk
                     ctx.fillStyle = '#8B4513'; // Saddle brown trunk
@@ -351,6 +390,102 @@
         }
 
         // --- Helper Functions ---
+
+        // --- Parallax Background Functions ---
+        function createLayerElement(x, y, type, layer) {
+            return {
+                x,
+                y,
+                type,
+                width: layer === 1 ? 120 : layer === 2 ? 80 : 40, // Larger elements in back
+                height: layer === 1 ? 150 : layer === 2 ? 100 : 50
+            };
+        }
+
+        function drawLayerElement(element, color, type) {
+            ctx.fillStyle = color;
+            
+            switch(type) {
+                case 'distant-peak':
+                case 'rolling-hill':
+                    // Simple triangle for distant mountain
+                    ctx.beginPath();
+                    ctx.moveTo(element.x, element.y + element.height);
+                    ctx.lineTo(element.x + element.width/2, element.y);
+                    ctx.lineTo(element.x + element.width, element.y + element.height);
+                    ctx.fill();
+                    break;
+                    
+                case 'skyscraper':
+                case 'tower':
+                    // Rectangle with optional top detail
+                    ctx.fillRect(element.x, element.y, element.width, element.height);
+                    ctx.fillRect(element.x + element.width/4, element.y - 10, element.width/2, 10);
+                    break;
+                    
+                case 'pine-tree':
+                    // Triangle top with rectangle trunk
+                    ctx.fillRect(element.x + element.width/3, element.y + element.height/2,
+                               element.width/3, element.height/2); // trunk
+                    ctx.beginPath();
+                    ctx.moveTo(element.x, element.y + element.height/2);
+                    ctx.lineTo(element.x + element.width/2, element.y);
+                    ctx.lineTo(element.x + element.width, element.y + element.height/2);
+                    ctx.fill();
+                    break;
+
+                case 'horizon':
+                case 'wave':
+                    // Simple horizontal line with wave effect
+                    ctx.beginPath();
+                    ctx.moveTo(element.x, element.y + element.height/2);
+                    for(let i = 0; i <= element.width; i += 20) {
+                        ctx.lineTo(element.x + i,
+                            element.y + element.height/2 + Math.sin(frameCount/20 + i/20) * 5);
+                    }
+                    ctx.lineTo(element.x + element.width, element.y + element.height);
+                    ctx.lineTo(element.x, element.y + element.height);
+                    ctx.fill();
+                    break;
+
+                default:
+                    // Simple rectangle for unspecified types
+                    ctx.fillRect(element.x, element.y, element.width, element.height);
+            }
+        }
+
+        function updateLayer(elements, spawnRate, speed, layerNum) {
+            // Spawn new elements
+            if (frameCount % spawnRate === 0) {
+                const y = layerNum === 1 ? canvas.height/3 :
+                         layerNum === 2 ? canvas.height/2 :
+                         canvas.height - 100;
+                
+                const elementTypes = currentTheme[`layer${layerNum}Elements`];
+                const type = elementTypes[Math.floor(Math.random() * elementTypes.length)];
+                
+                elements.push(createLayerElement(
+                    canvas.width + Math.random() * 100,
+                    y + Math.random() * 50 - 25,
+                    type,
+                    layerNum
+                ));
+            }
+
+            // Move existing elements
+            elements.forEach(element => {
+                element.x -= speed;
+            });
+
+            // Remove off-screen elements
+            return elements.filter(element => element.x + element.width > 0);
+        }
+
+        function drawLayer(elements, color) {
+            elements.forEach(element => {
+                drawLayerElement(element, color, element.type);
+            });
+        }
 
         // Draw Clouds
         function drawClouds() {
@@ -531,26 +666,60 @@
             obstacles = [];
             clouds = []; // Reset clouds
             birds = [];  // Reset birds
+            layer1Elements = []; // Reset parallax elements
+            layer2Elements = [];
+            layer3Elements = [];
             frameCount = 0;
             isGameOver = false;
             messageDiv.style.display = 'none';
             restartButton.style.display = 'none';
-            // Pre-spawn some initial clouds/birds for visual consistency on restart
-            for(let i=0; i<3; i++) { updateClouds(); frameCount++; } // Spawn a few clouds
-             for(let i=0; i<1; i++) { updateBirds(); frameCount++; } // Spawn a bird
-             frameCount = 0; // Reset frame count after pre-spawning
+
+            // Pre-spawn background elements
+            for(let i = 0; i < 3; i++) {
+                layer1Elements.push(createLayerElement(
+                    canvas.width * i/3,
+                    canvas.height/3,
+                    currentTheme.layer1Elements[0],
+                    1
+                ));
+                layer2Elements.push(createLayerElement(
+                    canvas.width * i/3,
+                    canvas.height/2,
+                    currentTheme.layer2Elements[0],
+                    2
+                ));
+                layer3Elements.push(createLayerElement(
+                    canvas.width * i/3,
+                    canvas.height - 100,
+                    currentTheme.layer3Elements[0],
+                    3
+                ));
+            }
+
+            // Pre-spawn some initial clouds/birds
+            for(let i=0; i<3; i++) { updateClouds(); frameCount++; }
+            for(let i=0; i<1; i++) { updateBirds(); frameCount++; }
+            frameCount = 0; // Reset frame count after pre-spawning
         }
 
         // Main Game Loop
         function gameLoop() {
             const difficulty = difficulties[currentDifficulty];
+            const baseSpeed = difficulty.OBSTACLE_SPEED;
 
             // 1. Clear Canvas with theme sky color
             ctx.fillStyle = currentTheme.skyColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 2. Update Game Objects using current difficulty settings
+            // 2. Update Game Objects
             frameCount++;
+
+            // Update parallax layers
+            layer1Elements = updateLayer(layer1Elements, LAYER1_SPAWN_RATE, baseSpeed * LAYER1_SPEED_FACTOR, 1);
+            layer2Elements = updateLayer(layer2Elements, LAYER2_SPAWN_RATE, baseSpeed * LAYER2_SPEED_FACTOR, 2);
+            layer3Elements = updateLayer(layer3Elements, LAYER3_SPAWN_RATE, baseSpeed * LAYER3_SPEED_FACTOR, 3);
+
+            // Update game elements
             updateClouds(difficulty.CLOUD_SPEED);
             updateBirds(difficulty.BIRD_SPEED);
             
@@ -564,7 +733,13 @@
                 }
             }
 
-            // 3. Draw Game Objects with current theme
+            // 3. Draw Game Objects
+            // Draw background layers first
+            drawLayer(layer1Elements, currentTheme.layer1Color);
+            drawLayer(layer2Elements, currentTheme.layer2Color);
+            drawLayer(layer3Elements, currentTheme.layer3Color);
+            
+            // Draw game elements
             drawClouds();
             drawBirds();
             drawGround();
