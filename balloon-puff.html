@@ -215,6 +215,9 @@
         const CLOUD_SPAWN_RATE = 300;
         const BIRD_SPAWN_RATE = 450;
 
+        // --- Balloon Properties ---
+        const balloonColor = '#FF69B4'; // Hot Pink
+
         // --- Difficulty Settings ---
         const difficulties = {
             easy: {
@@ -364,21 +367,21 @@
         }
 
         // Update Cloud Positions & Spawn New Ones
-        function updateClouds() {
-             // Spawn new cloud
+        function updateClouds(speed) {
+            // Spawn new cloud
             if (frameCount % CLOUD_SPAWN_RATE === 0) {
                 clouds.push({
-                    x: canvas.width + Math.random() * 100, // Start off screen right
-                    y: Math.random() * (canvas.height * 0.4) + 50, // Upper part of sky
-                    size: Math.random() * 20 + 25 // Random size (25-45)
+                    x: canvas.width + Math.random() * 100,
+                    y: Math.random() * (canvas.height * 0.4) + 50,
+                    size: Math.random() * 20 + 25
                 });
             }
             // Move existing clouds
             clouds.forEach(cloud => {
-                cloud.x -= CLOUD_SPEED;
+                cloud.x -= speed;
             });
             // Remove clouds that have moved off-screen
-            clouds = clouds.filter(cloud => cloud.x + cloud.size * 2 > 0); // Remove when fully off screen
+            clouds = clouds.filter(cloud => cloud.x + cloud.size * 2 > 0);
         }
 
         // Draw Birds
@@ -398,20 +401,20 @@
              });
         }
 
-         // Update Bird Positions & Spawn New Ones
-        function updateBirds() {
-             // Spawn new bird
+        // Update Bird Positions & Spawn New Ones
+        function updateBirds(speed) {
+            // Spawn new bird
             if (frameCount % BIRD_SPAWN_RATE === 0) {
                 birds.push({
-                    x: canvas.width + Math.random() * 50, // Start off screen right
-                    y: Math.random() * (canvas.height * 0.5) + 80, // Slightly lower than clouds
-                    phase: Math.random() * Math.PI * 2 // Random start phase for flapping
+                    x: canvas.width + Math.random() * 50,
+                    y: Math.random() * (canvas.height * 0.5) + 80,
+                    phase: Math.random() * Math.PI * 2
                 });
             }
             // Move existing birds and update phase
             birds.forEach(bird => {
-                bird.x -= BIRD_SPEED;
-                bird.phase += 0.1; // Controls flapping speed
+                bird.x -= speed;
+                bird.phase += 0.1;
             });
             // Remove birds that have moved off-screen
             birds = birds.filter(bird => bird.x + 10 > 0);
@@ -437,34 +440,26 @@
             ctx.stroke();
         }
 
-        // Draw obstacles (trees - only bottom part)
+        // Draw obstacles using current theme
         function drawObstacles() {
             obstacles.forEach(obstacle => {
-                // Draw trunk (bottom part)
-                ctx.fillStyle = trunkColor;
-                ctx.fillRect(obstacle.x, obstacle.y, OBSTACLE_WIDTH, canvas.height - obstacle.y);
-
-                // Add simple texture/detail to trunk
-                ctx.fillStyle = '#654321'; // Darker Brown
-                for (let i = 0; i < 5; i++) {
-                    ctx.fillRect(obstacle.x + 10 + (i % 2 * 20) , obstacle.y + i * 30 + 10, 10, 5);
-                }
+                currentTheme.drawObstacle(obstacle);
             });
         }
 
-        // Draw the ground
+        // Draw the ground with theme colors
         function drawGround() {
-            ctx.fillStyle = '#90EE90'; // Light Green
+            ctx.fillStyle = currentTheme.groundColor;
             ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
-            ctx.fillStyle = '#8FBC8F'; // Dark Sea Green (for texture)
-             for(let i = 0; i < canvas.width; i += 20) {
-                 ctx.fillRect(i + Math.random()*5, canvas.height - 20 + Math.random()*5, 10, 10);
-             }
+            ctx.fillStyle = currentTheme.groundDetailColor;
+            for(let i = 0; i < canvas.width; i += 20) {
+                ctx.fillRect(i + Math.random()*5, canvas.height - 20 + Math.random()*5, 10, 10);
+            }
         }
 
         // Update balloon position and velocity
-        function updateBalloon() {
-            balloonVelY += GRAVITY;
+        function updateBalloon(gravity) {
+            balloonVelY += gravity;
             balloonY += balloonVelY;
 
             // Prevent balloon from going off the top
@@ -474,25 +469,24 @@
             }
         }
 
-        // Update obstacle positions and spawn new ones (only bottom part)
-        function updateObstacles() {
+        // Update obstacle positions and spawn new ones
+        function updateObstacles(speed, spawnRate) {
             // Spawn new obstacle only if game is running
-            if (!isGameOver && frameCount % OBSTACLE_SPAWN_RATE === 0) {
+            if (!isGameOver && frameCount % spawnRate === 0) {
                 // The y position is the top of the trunk
-                const minTrunkTop = canvas.height - 20 - (canvas.height * 0.6); // Max height of tree trunk (leaving space for balloon)
-                const maxTrunkTop = canvas.height - 20 - 50; // Min height of tree trunk (above ground)
+                const minTrunkTop = canvas.height - 20 - (canvas.height * 0.6);
+                const maxTrunkTop = canvas.height - 20 - 50;
                 const trunkY = Math.random() * (maxTrunkTop - minTrunkTop) + minTrunkTop;
-
 
                 obstacles.push({
                     x: canvas.width,
-                    y: trunkY // Y position is the top of the trunk
+                    y: trunkY
                 });
             }
 
             // Move existing obstacles
             obstacles.forEach(obstacle => {
-                obstacle.x -= OBSTACLE_SPEED;
+                obstacle.x -= speed;
             });
 
             // Remove obstacles that have moved off-screen
@@ -549,42 +543,43 @@
 
         // Main Game Loop
         function gameLoop() {
-            // 1. Clear Canvas
-            ctx.fillStyle = '#87CEEB';
+            const difficulty = difficulties[currentDifficulty];
+
+            // 1. Clear Canvas with theme sky color
+            ctx.fillStyle = currentTheme.skyColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 2. Update Game Objects
-            frameCount++; // Increment frame count for spawning logic
-            updateClouds();
-            updateBirds();
-            if (!isGameOver) { // Only update balloon and obstacles if game is running
-                updateBalloon();
-                updateObstacles(); // Spawning logic is inside this function now
+            // 2. Update Game Objects using current difficulty settings
+            frameCount++;
+            updateClouds(difficulty.CLOUD_SPEED);
+            updateBirds(difficulty.BIRD_SPEED);
+            
+            if (!isGameOver) {
+                updateBalloon(difficulty.GRAVITY);
+                updateObstacles(difficulty.OBSTACLE_SPEED, difficulty.OBSTACLE_SPAWN_RATE);
 
-                 // 3. Check for Collisions (only if game running)
                 if (checkCollisions()) {
+                    playSound(gameOverSound);
                     triggerGameOver();
                 }
             }
 
-            // 4. Draw Game Objects (Draw regardless of game over state)
-            // Draw background elements first
+            // 3. Draw Game Objects with current theme
             drawClouds();
             drawBirds();
-            // Draw foreground elements
             drawGround();
             drawObstacles();
-            drawBalloon(); // Draw balloon last so it's on top
+            drawBalloon();
 
-            // 5. Request Next Frame (unless game is over)
+            // 4. Request Next Frame (unless game is over)
             if (!isGameOver) {
-                 animationFrameId = requestAnimationFrame(gameLoop);
+                animationFrameId = requestAnimationFrame(gameLoop);
             }
         }
 
         // --- Event Listeners ---
-
-        // Handle keyboard input
+        
+        // Handle keyboard input with sound effects
         function handleKeyPress(e) {
             // If game is over and Space is pressed, restart
             if (isGameOver && e.code === 'Space') {
@@ -592,8 +587,11 @@
             }
             // If game is running and Space is pressed, puff
             else if (!isGameOver && e.code === 'Space') {
-                balloonVelY = LIFT;
-                 // Add a little visual puff effect (optional)
+                const difficulty = difficulties[currentDifficulty];
+                balloonVelY = difficulty.LIFT;
+                playSound(puffSound);
+                
+                // Add a little visual puff effect
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
                 ctx.beginPath();
                 ctx.arc(canvas.width / 4, balloonY, BALLOON_RADIUS + 10, 0, Math.PI * 2);
@@ -601,16 +599,19 @@
             }
         }
 
-        // Handle mouse clicks or touch taps
+        // Handle mouse clicks or touch taps with sound effects
         function handleInteraction() {
-             // If game is over, don't do anything on tap/click (let spacebar or button handle restart)
-             if (isGameOver) {
-                 return;
-             }
-             // If game is running, puff the balloon
-             else if (!isGameOver) {
-                balloonVelY = LIFT;
-                 // Add a little visual puff effect (optional)
+            // If game is over, don't do anything on tap/click
+            if (isGameOver) {
+                return;
+            }
+            // If game is running, puff the balloon
+            else if (!isGameOver) {
+                const difficulty = difficulties[currentDifficulty];
+                balloonVelY = difficulty.LIFT;
+                playSound(puffSound);
+                
+                // Add a little visual puff effect
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
                 ctx.beginPath();
                 ctx.arc(canvas.width / 4, balloonY, BALLOON_RADIUS + 10, 0, Math.PI * 2);
@@ -642,7 +643,36 @@
 
         // --- Window Load ---
         window.onload = () => {
-             init(); // Start the game after everything is loaded
+            // Set up initial state
+            soundEnabled = soundToggle.checked;
+            currentTheme = themes[themeSelect.value];
+            currentDifficulty = 'easy';
+
+            // Show start screen
+            messageDiv.style.display = 'block';
+            startScreenContent.style.display = 'block';
+            gameOverContent.style.display = 'none';
+
+            // Event listeners for options
+            soundToggle.addEventListener('change', () => {
+                soundEnabled = soundToggle.checked;
+            });
+
+            themeSelect.addEventListener('change', () => {
+                currentTheme = themes[themeSelect.value];
+            });
+
+            document.querySelectorAll('input[name="difficulty"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    currentDifficulty = e.target.value;
+                });
+            });
+
+            // Start button click handler
+            startButton.addEventListener('click', () => {
+                messageDiv.style.display = 'none';
+                init(); // Start the game with selected options
+            });
         };
 
     </script>
