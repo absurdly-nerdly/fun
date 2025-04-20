@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balloon Puff Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #87CEEB; /* Light Sky Blue */
+            margin: 0;
+            font-family: 'Press Start 2P', cursive;
+            color: #333;
+            flex-direction: column; /* Stack canvas and controls vertically */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        canvas {
+            border: 5px solid #444;
+            display: block; /* Remove extra space below canvas */
+            background-color: #87CEEB; /* Match body background */
+            /* Make canvas responsive but maintain aspect ratio */
+            max-width: 95vw;
+            max-height: 70vh;
+            aspect-ratio: 800 / 600;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            border-radius: 10px; /* Rounded corners */
+            cursor: pointer; /* Indicate clicking/tapping puffs */
+        }
+        #controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        button {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 16px; /* Slightly larger font */
+            padding: 15px 30px; /* Bigger padding */
+            cursor: pointer;
+            background-color: #FF6347; /* Tomato Red */
+            color: white;
+            border: none;
+            border-radius: 8px; /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            display: none; /* Hidden initially */
+        }
+        button:hover {
+            background-color: #E5533D; /* Darker red on hover */
+        }
+        button:active {
+            transform: scale(0.95); /* Press effect */
+        }
+        #message {
+            position: absolute; /* Position over the canvas */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.75); /* Slightly darker overlay */
+            color: white;
+            padding: 30px; /* More padding */
+            border-radius: 10px;
+            font-size: 24px; /* Larger message font */
+            text-align: center;
+            display: none; /* Hidden initially */
+            z-index: 10; /* Ensure it's above the canvas */
+        }
+        #message button {
+            margin-top: 20px; /* Space between message and button */
+            display: block; /* Make button appear below message */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        /* Add instructions below message */
+        #message small {
+            display: block;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="message">
+        <span id="messageText">Game Over!</span>
+        <small>(Press SPACE or click Restart)</small>
+        <button id="restartButton">Restart</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageDiv = document.getElementById('message');
+        const messageText = document.getElementById('messageText');
+        const restartButton = document.getElementById('restartButton');
+
+        // --- Game Configuration ---
+        const GRAVITY = 0.08;  // Reduced gravity (slower falling)
+        const LIFT = -3.5;     // Reduced lift (weaker jump)
+        const BALLOON_RADIUS = 30;
+        const OBSTACLE_WIDTH = 60;
+        const OBSTACLE_GAP = 280; // This is now the minimum height of the gap from the ground to the top of the tree
+        const OBSTACLE_SPEED = 1.8; // Slower obstacles
+        const OBSTACLE_SPAWN_RATE = 240; // Spawn obstacles less often (higher number)
+
+        // Background elements config (no changes needed here for difficulty)
+        const CLOUD_SPEED = 0.5;
+        const CLOUD_SPAWN_RATE = 300; // Frames between new clouds
+        const BIRD_SPEED = 1.5;
+        const BIRD_SPAWN_RATE = 450; // Frames between new birds
+
+        // --- Game Variables ---
+        let balloonY, balloonVelY;
+        let obstacles = []; // Obstacles will now only represent the bottom tree trunks
+        let clouds = [];
+        let birds = [];
+        let frameCount = 0;
+        let isGameOver = false;
+        let animationFrameId; // To stop the game loop
+
+        // --- Balloon Properties ---
+        const balloonColor = '#FF69B4'; // Hot Pink
+
+        // --- Obstacle Properties ---
+        const trunkColor = '#8B4513'; // Saddle Brown
+
+        // --- Helper Functions ---
+
+        // Draw Clouds
+        function drawClouds() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Semi-transparent white
+            clouds.forEach(cloud => {
+                // Simple cloud shape using multiple circles
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.size * 0.8, cloud.y, cloud.size * 1.2, 0, Math.PI * 2);
+                ctx.arc(cloud.x - cloud.size * 0.7, cloud.y, cloud.size * 1.1, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.size * 0.2, cloud.y - cloud.size * 0.5, cloud.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Update Cloud Positions & Spawn New Ones
+        function updateClouds() {
+             // Spawn new cloud
+            if (frameCount % CLOUD_SPAWN_RATE === 0) {
+                clouds.push({
+                    x: canvas.width + Math.random() * 100, // Start off screen right
+                    y: Math.random() * (canvas.height * 0.4) + 50, // Upper part of sky
+                    size: Math.random() * 20 + 25 // Random size (25-45)
+                });
+            }
+            // Move existing clouds
+            clouds.forEach(cloud => {
+                cloud.x -= CLOUD_SPEED;
+            });
+            // Remove clouds that have moved off-screen
+            clouds = clouds.filter(cloud => cloud.x + cloud.size * 2 > 0); // Remove when fully off screen
+        }
+
+        // Draw Birds
+        function drawBirds() {
+            ctx.fillStyle = '#333'; // Dark color for birds
+             birds.forEach(bird => {
+                ctx.beginPath();
+                // Simple V shape for wings, alternates based on phase
+                const wingYOffset = Math.sin(bird.phase) * 5; // Wing flap effect
+                ctx.moveTo(bird.x - 10, bird.y + wingYOffset);
+                ctx.lineTo(bird.x, bird.y - wingYOffset);
+                ctx.lineTo(bird.x + 10, bird.y + wingYOffset);
+                //ctx.closePath(); // Don't close path for V shape
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#333';
+                ctx.stroke(); // Use stroke for thin lines
+             });
+        }
+
+         // Update Bird Positions & Spawn New Ones
+        function updateBirds() {
+             // Spawn new bird
+            if (frameCount % BIRD_SPAWN_RATE === 0) {
+                birds.push({
+                    x: canvas.width + Math.random() * 50, // Start off screen right
+                    y: Math.random() * (canvas.height * 0.5) + 80, // Slightly lower than clouds
+                    phase: Math.random() * Math.PI * 2 // Random start phase for flapping
+                });
+            }
+            // Move existing birds and update phase
+            birds.forEach(bird => {
+                bird.x -= BIRD_SPEED;
+                bird.phase += 0.1; // Controls flapping speed
+            });
+            // Remove birds that have moved off-screen
+            birds = birds.filter(bird => bird.x + 10 > 0);
+        }
+
+
+        // Draw the balloon
+        function drawBalloon() {
+            ctx.fillStyle = balloonColor;
+            ctx.beginPath();
+            ctx.arc(canvas.width / 4, balloonY, BALLOON_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#A020F0'; // Purple outline
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Simple balloon string
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 4, balloonY + BALLOON_RADIUS);
+            ctx.lineTo(canvas.width / 4, balloonY + BALLOON_RADIUS + 15);
+            ctx.stroke();
+        }
+
+        // Draw obstacles (trees - only bottom part)
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                // Draw trunk (bottom part)
+                ctx.fillStyle = trunkColor;
+                ctx.fillRect(obstacle.x, obstacle.y, OBSTACLE_WIDTH, canvas.height - obstacle.y);
+
+                // Add simple texture/detail to trunk
+                ctx.fillStyle = '#654321'; // Darker Brown
+                for (let i = 0; i < 5; i++) {
+                    ctx.fillRect(obstacle.x + 10 + (i % 2 * 20) , obstacle.y + i * 30 + 10, 10, 5);
+                }
+            });
+        }
+
+        // Draw the ground
+        function drawGround() {
+            ctx.fillStyle = '#90EE90'; // Light Green
+            ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+            ctx.fillStyle = '#8FBC8F'; // Dark Sea Green (for texture)
+             for(let i = 0; i < canvas.width; i += 20) {
+                 ctx.fillRect(i + Math.random()*5, canvas.height - 20 + Math.random()*5, 10, 10);
+             }
+        }
+
+        // Update balloon position and velocity
+        function updateBalloon() {
+            balloonVelY += GRAVITY;
+            balloonY += balloonVelY;
+
+            // Prevent balloon from going off the top
+            if (balloonY - BALLOON_RADIUS < 0) {
+                balloonY = BALLOON_RADIUS;
+                balloonVelY = 0;
+            }
+        }
+
+        // Update obstacle positions and spawn new ones (only bottom part)
+        function updateObstacles() {
+            // Spawn new obstacle only if game is running
+            if (!isGameOver && frameCount % OBSTACLE_SPAWN_RATE === 0) {
+                // The y position is the top of the trunk
+                const minTrunkTop = canvas.height - 20 - (canvas.height * 0.6); // Max height of tree trunk (leaving space for balloon)
+                const maxTrunkTop = canvas.height - 20 - 50; // Min height of tree trunk (above ground)
+                const trunkY = Math.random() * (maxTrunkTop - minTrunkTop) + minTrunkTop;
+
+
+                obstacles.push({
+                    x: canvas.width,
+                    y: trunkY // Y position is the top of the trunk
+                });
+            }
+
+            // Move existing obstacles
+            obstacles.forEach(obstacle => {
+                obstacle.x -= OBSTACLE_SPEED;
+            });
+
+            // Remove obstacles that have moved off-screen
+            obstacles = obstacles.filter(obstacle => obstacle.x + OBSTACLE_WIDTH > 0);
+        }
+
+        // Check for collisions
+        function checkCollisions() {
+            // Collision with ground
+            if (balloonY + BALLOON_RADIUS > canvas.height - 20) { // 20 is ground height
+                return true;
+            }
+
+            // Collision with obstacles (only bottom part)
+            const balloonX = canvas.width / 4;
+            for (const obstacle of obstacles) {
+                // Check horizontal overlap
+                if (balloonX + BALLOON_RADIUS > obstacle.x && balloonX - BALLOON_RADIUS < obstacle.x + OBSTACLE_WIDTH) {
+                    // Check vertical overlap (hit the trunk)
+                    if (balloonY + BALLOON_RADIUS > obstacle.y) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        // Game Over state
+        function triggerGameOver() {
+            isGameOver = true;
+            cancelAnimationFrame(animationFrameId); // Stop the game loop
+            messageDiv.style.display = 'block';
+            restartButton.style.display = 'block'; // Show button inside message box
+            // Optional: Add a sound effect here later if needed
+        }
+
+        // Reset game variables to start fresh
+        function resetGame() {
+            balloonY = canvas.height / 3; // Start higher up
+            balloonVelY = 0;
+            obstacles = [];
+            clouds = []; // Reset clouds
+            birds = [];  // Reset birds
+            frameCount = 0;
+            isGameOver = false;
+            messageDiv.style.display = 'none';
+            restartButton.style.display = 'none';
+            // Pre-spawn some initial clouds/birds for visual consistency on restart
+            for(let i=0; i<3; i++) { updateClouds(); frameCount++; } // Spawn a few clouds
+             for(let i=0; i<1; i++) { updateBirds(); frameCount++; } // Spawn a bird
+             frameCount = 0; // Reset frame count after pre-spawning
+        }
+
+        // Main Game Loop
+        function gameLoop() {
+            // 1. Clear Canvas
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Update Game Objects
+            frameCount++; // Increment frame count for spawning logic
+            updateClouds();
+            updateBirds();
+            if (!isGameOver) { // Only update balloon and obstacles if game is running
+                updateBalloon();
+                updateObstacles(); // Spawning logic is inside this function now
+
+                 // 3. Check for Collisions (only if game running)
+                if (checkCollisions()) {
+                    triggerGameOver();
+                }
+            }
+
+            // 4. Draw Game Objects (Draw regardless of game over state)
+            // Draw background elements first
+            drawClouds();
+            drawBirds();
+            // Draw foreground elements
+            drawGround();
+            drawObstacles();
+            drawBalloon(); // Draw balloon last so it's on top
+
+            // 5. Request Next Frame (unless game is over)
+            if (!isGameOver) {
+                 animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // --- Event Listeners ---
+
+        // Handle keyboard input
+        function handleKeyPress(e) {
+            // If game is over and Space is pressed, restart
+            if (isGameOver && e.code === 'Space') {
+                handleRestart();
+            }
+            // If game is running and Space is pressed, puff
+            else if (!isGameOver && e.code === 'Space') {
+                balloonVelY = LIFT;
+                 // Add a little visual puff effect (optional)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.beginPath();
+                ctx.arc(canvas.width / 4, balloonY, BALLOON_RADIUS + 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Handle mouse clicks or touch taps
+        function handleInteraction() {
+             // If game is over, don't do anything on tap/click (let spacebar or button handle restart)
+             if (isGameOver) {
+                 return;
+             }
+             // If game is running, puff the balloon
+             else if (!isGameOver) {
+                balloonVelY = LIFT;
+                 // Add a little visual puff effect (optional)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.beginPath();
+                ctx.arc(canvas.width / 4, balloonY, BALLOON_RADIUS + 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Start new game on restart button click
+        function handleRestart() {
+            if (!animationFrameId || isGameOver) { // Prevent multiple restarts if already running
+                 resetGame();
+                 gameLoop(); // Start the loop again
+            }
+        }
+
+        // --- Initialization ---
+        function init() {
+            resetGame(); // Set initial positions and clear arrays
+
+            // Add event listeners
+            window.addEventListener('keydown', handleKeyPress);
+            canvas.addEventListener('mousedown', handleInteraction); // For mouse clicks
+            canvas.addEventListener('touchstart', handleInteraction, { passive: true }); // For touch screens (passive for performance)
+            restartButton.addEventListener('click', handleRestart);
+
+            // Start the game loop
+            gameLoop();
+        }
+
+        // --- Window Load ---
+        window.onload = () => {
+             init(); // Start the game after everything is loaded
+        };
+
+    </script>
+</body>
+</html>
