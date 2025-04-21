@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Release Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #333; /* Dark Grey */
+            margin: 0;
+            font-family: 'Press Start 2P', cursive;
+            color: #fff; /* White */
+            flex-direction: column;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #00FFFF; /* Cyan - a blue/green shade */
+            text-align: center;
+        }
+        .container {
+            display: block; /* Changed from flex */
+            background-color: #1a1a1a; /* Even darker grey/black */
+            color: #fff; /* White */
+            padding: 30px; /* Increased padding */
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            max-width: 90vw;
+            width: auto; /* Adjust width */
+        }
+        .app-list {
+            list-style: none;
+            padding: 0;
+            margin: 0; /* Added margin 0 */
+        }
+        .app-item {
+            /* Removed border, background, and some padding to match index.html li */
+            /* border: 1px solid #ddd; */
+            margin: 15px 0; /* Adjusted margin */
+            padding: 0; /* Removed padding */
+            /* border-radius: 5px; */
+            /* background-color: #fff; */
+        }
+        .app-item h2 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #00FFFF; /* Cyan */
+            font-size: 18px; /* Slightly smaller than h1 */
+        }
+        .app-item.has-updates {
+            border-left: 5px solid orange; /* Keep visual indicator */
+            padding-left: 10px; /* Add padding for the border */
+        }
+        .app-item .status {
+            font-style: italic;
+            color: #aaa; /* Light grey */
+            margin-bottom: 10px;
+            font-size: 12px; /* Smaller font size */
+        }
+        .release-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #fff; /* White */
+        }
+        .release-form input[type="text"] {
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 150px;
+            background-color: #333; /* Dark background for input */
+            color: #fff; /* White text for input */
+        }
+        .release-form button {
+            /* Matched index.html link styles */
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #008080; /* Teal */
+            color: #fff; /* White */
+            text-decoration: none; /* In case it was an anchor */
+            border: 2px solid #00CED1; /* Dark Turquoise */
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .release-form button:hover {
+            background-color: #00CED1; /* Dark Turquoise on hover */
+            border-color: #008080; /* Teal border on hover */
+        }
+        .message-area {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left; /* Align message text left */
+        }
+        .message-area.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message-area.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message-area pre { /* For displaying details */
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #eee;
+            color: #333; /* Dark text for pre */
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>App Release Manager</h1>
+
+        <div id="apps-container">
+            <p>Loading applications...</p>
+            <ul id="app-list" class="app-list">
+                <!-- App items will be loaded here by JavaScript -->
+            </ul>
+        </div>
+
+        <div id="message-area" class="message-area" style="display: none;">
+            <!-- Messages will be displayed here -->
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
