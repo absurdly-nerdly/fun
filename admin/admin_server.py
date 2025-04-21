@@ -46,6 +46,10 @@ def admin_js():
     """Serves the admin JavaScript file."""
     return send_from_directory(ADMIN_DIR, 'admin.js')
 
+@app.route('/games/<path:filename>')
+def serve_game_file(filename):
+    """Serves files from the games directory."""
+    return send_from_directory(GAMES_DIR, filename)
 
 @app.route('/api/apps', methods=['GET'])
 def get_apps():
