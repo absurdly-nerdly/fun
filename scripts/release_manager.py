@@ -64,11 +64,11 @@ def main():
         sys.exit(1)
     print(f"Tag '{full_tag_name}' created locally.")
 
-    # 3. Push the tag to remote 'origin'
-    print(f"Pushing tag '{full_tag_name}' to remote 'origin'...")
-    stdout, stderr, exit_code = run_command(f"git push origin {full_tag_name}", cwd=git_root)
+    # 3. Push the tag to remote 'fun'
+    print(f"Pushing tag '{full_tag_name}' to remote 'fun'...")
+    stdout, stderr, exit_code = run_command(f"git push fun {full_tag_name}", cwd=git_root)
     if exit_code != 0:
-        print(f"Error pushing tag to origin: {stderr}", file=sys.stderr)
+        print(f"Error pushing tag to fun: {stderr}", file=sys.stderr)
         # If pushing fails, maybe delete the local tag? Or leave it for manual push?
         # Let's leave it for now, but inform the user.
         print(f"Warning: Failed to push tag '{full_tag_name}' to remote. Local tag still exists.", file=sys.stderr)
