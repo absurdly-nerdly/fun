@@ -103,8 +103,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         statusText = 'Has uncommitted changes (Commit manually before releasing).';
                     }
 
+                    // Show version information
+                    const versionInfo = app.latest_tag ?
+                        `Latest Release: <span class="latest-tag">${app.latest_tag}</span>` :
+                        'No releases yet';
+
                     li.innerHTML = `
                         <h2>${app.name}</h2>
+                        <div class="version-info">
+                            <p>${versionInfo}</p>
+                            ${app.all_tags && app.all_tags.length > 0 ? `
+                                <div class="version-selector">
+                                    <select class="version-select">
+                                        <option value="">Select a version...</option>
+                                        ${app.all_tags.map(tag => `<option value="${tag}">${tag}</option>`).join('')}
+                                    </select>
+                                    <button class="view-version-button">View Version</button>
+                                </div>
+                            ` : ''}
+                        </div>
                         <p class="status">${statusText}</p>
                         <div class="release-form">
                             <label for="version-${app.name}">New Version Tag (e.g., 1.0.0):</label>
@@ -119,6 +136,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Add event listeners after elements are created
                 document.querySelectorAll('.release-button').forEach(button => {
                     button.addEventListener('click', handleReleaseClick);
+                });
+
+                // Add event listeners for version selector buttons
+                document.querySelectorAll('.view-version-button').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const appItem = event.target.closest('.app-item');
+                        const select = appItem.querySelector('.version-select');
+                        const selectedVersion = select.value;
+                        
+                        if (!selectedVersion) {
+                            displayMessage('Please select a version to view.', '', true);
+                            return;
+                        }
+
+                        // Assuming your Git repository is hosted on GitHub
+                        // You can modify this URL format based on your actual Git hosting service
+                        const repoUrl = 'https://github.com/absurdly-nerdly/fun';
+                        const tagUrl = `${repoUrl}/tree/${selectedVersion}`;
+                        window.open(tagUrl, '_blank');
+                    });
                 });
             })
             .catch(error => {

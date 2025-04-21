@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request, send_from_directory
 import subprocess
 import os
 import sys
+# NOTE: You might need to install this: pip install packaging
+from packaging import version as packaging_version
 
 app = Flask(__name__)
 
@@ -53,8 +55,10 @@ def serve_game_file(filename):
 
 @app.route('/api/apps', methods=['GET'])
 def get_apps():
-    """Lists games and checks for uncommitted changes within their specific directories."""
-    apps = []
+    """
+    Lists games, checks for uncommitted changes, and retrieves release tags.
+    """
+    apps_data = []
     if not os.path.isdir(GAMES_DIR):
         return jsonify({"error": f"Games directory not found: {GAMES_DIR}"}), 500
 
@@ -62,21 +66,56 @@ def get_apps():
         for app_name in os.listdir(GAMES_DIR):
             app_path = os.path.join(GAMES_DIR, app_name)
             if os.path.isdir(app_path):
-                # Check git status specifically for changes *within* this app's directory
-                # `git status --porcelain games/app_name` lists changes under that path
-                stdout, stderr, exit_code = run_command(f'git status --porcelain "{app_path}"', cwd=REPO_ROOT)
-
+                # --- Check git status ---
+                status_stdout, status_stderr, status_exit_code = run_command(f'git status --porcelain "{app_path}"', cwd=REPO_ROOT)
                 has_updates = False
-                if exit_code == 0 and stdout: # If command succeeded and there's output, there are changes
+                if status_exit_code == 0 and status_stdout:
                     has_updates = True
-                elif exit_code != 0:
-                    # Handle potential errors if needed, e.g., not a git repo
-                    print(f"Warning: git status check failed for {app_name}: {stderr}", file=sys.stderr)
-                    # Decide how to represent this - maybe an 'error' status?
-                    # For now, assume no updates if status check fails.
+                elif status_exit_code != 0:
+                    print(f"Warning: git status check failed for {app_name}: {status_stderr}", file=sys.stderr)
 
-                apps.append({"name": app_name, "has_updates": has_updates})
-        return jsonify(apps)
+                # --- Get release tags ---
+                tag_prefix = f"{app_name}-v"
+                tags_stdout, tags_stderr, tags_exit_code = run_command(f'git tag --list "{tag_prefix}*"', cwd=REPO_ROOT)
+
+                all_tags = []
+                latest_tag = None
+
+                if tags_exit_code == 0 and tags_stdout:
+                    # Split tags by newline and filter out empty strings
+                    raw_tags = list(filter(None, tags_stdout.splitlines()))
+
+                    # Parse and sort tags using packaging.version
+                    parsed_tags = []
+                    for tag in raw_tags:
+                        try:
+                            # Extract version part after prefix (e.g., '1.0.1' from 'app-v1.0.1')
+                            version_str = tag[len(tag_prefix):]
+                            parsed_tags.append((packaging_version.parse(version_str), tag))
+                        except packaging_version.InvalidVersion:
+                            print(f"Warning: Could not parse version from tag '{tag}'. Skipping.", file=sys.stderr)
+                            # Optionally include unparseable tags if needed
+                            # all_tags.append(tag)
+
+                    # Sort by version, highest first
+                    parsed_tags.sort(key=lambda x: x[0], reverse=True)
+
+                    # Extract sorted tag names
+                    all_tags = [tag for version, tag in parsed_tags]
+                    if all_tags:
+                        latest_tag = all_tags[0] # Highest version is the first after reverse sort
+
+                elif tags_exit_code != 0:
+                    print(f"Warning: git tag check failed for {app_name}: {tags_stderr}", file=sys.stderr)
+
+                apps_data.append({
+                    "name": app_name,
+                    "has_updates": has_updates,
+                    "latest_tag": latest_tag,
+                    "all_tags": all_tags
+                })
+
+        return jsonify(apps_data)
     except Exception as e:
         print(f"Error listing apps: {e}", file=sys.stderr)
         return jsonify({"error": "Failed to list applications."}), 500
