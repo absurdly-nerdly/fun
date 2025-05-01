@@ -29,3 +29,14 @@ games/
 -   **Entry Point:** Ensure each game (both in `working` and each `releases/<version>`) has a clear HTML entry point (e.g., `index.html`, `<app_name>.html`).
 
 Failure to follow this structure will prevent the Admin Panel from correctly identifying applications, versions, and managing releases.
+
+
+
+## Balloon Puff:
+
+### Sound Asset Rules:
+
+-   **Format:** Use WAV format.
+-   **Duration:** Keep sounds short (e.g., typically under 1-2 seconds).
+-   **Style:** Prefer retro-style 8-bit sounds.
+-   **File Size:** Keep file sizes small (e.g., typically under 100KB each).
