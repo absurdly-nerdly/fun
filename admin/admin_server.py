@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, abort
 import subprocess
 import os
 import sys
@@ -11,13 +11,12 @@ app = Flask(__name__)
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(PROJECT_ROOT) # Assuming admin is directly under repo root
 GAMES_DIR = os.path.join(REPO_ROOT, 'games')
-SCRIPTS_DIR = os.path.join(REPO_ROOT, 'scripts')
+# SCRIPTS_DIR = os.path.join(REPO_ROOT, 'scripts') # No longer used for release manager
 ADMIN_DIR = os.path.join(REPO_ROOT, 'admin') # For serving admin.html/js
 
 def run_command(command, cwd=None):
     """Runs a shell command and returns its stdout, stderr, and return code."""
     try:
-        # Ensure the command list is correctly formatted if needed, but shell=True handles strings
         process = subprocess.run(
             command,
             shell=True,
@@ -28,14 +27,15 @@ def run_command(command, cwd=None):
         )
         return process.stdout.strip(), process.stderr.strip(), process.returncode
     except subprocess.CalledProcessError as e:
-        # Don't print errors here, let the caller handle interpretation
         return e.stdout.strip(), e.stderr.strip(), e.returncode
     except Exception as e:
         return "", str(e), 1 # Indicate failure
 
+# --- Static File Serving ---
+
 @app.route('/')
 def index_page():
-    """Serves the main index HTML page."""
+    """Serves the main index HTML page from repo root."""
     return send_from_directory(REPO_ROOT, 'index.html')
 
 @app.route('/admin')
@@ -48,15 +48,37 @@ def admin_js():
     """Serves the admin JavaScript file."""
     return send_from_directory(ADMIN_DIR, 'admin.js')
 
-@app.route('/games/<path:filename>')
-def serve_game_file(filename):
-    """Serves files from the games directory."""
-    return send_from_directory(GAMES_DIR, filename)
+# Serve files from a game's 'working' directory
+@app.route('/games/<app_name>/working/<path:filename>')
+def serve_game_working_file(app_name, filename):
+    """Serves files from a game's working directory."""
+    working_dir = os.path.join(GAMES_DIR, app_name, 'working')
+    if not os.path.exists(os.path.join(working_dir, filename)):
+         abort(404) # Return 404 if file doesn't exist in working dir
+    # Check for path traversal attempts (basic check)
+    if '..' in filename or filename.startswith('/'):
+        abort(400)
+    return send_from_directory(working_dir, filename)
+
+# Serve files from a game's specific release version directory
+@app.route('/games/<app_name>/releases/<version>/<path:filename>')
+def serve_game_release_file(app_name, version, filename):
+    """Serves files from a specific release version of a game."""
+    release_dir = os.path.join(GAMES_DIR, app_name, 'releases', version)
+    if not os.path.exists(os.path.join(release_dir, filename)):
+        abort(404) # Return 404 if file doesn't exist in release dir
+    # Check for path traversal attempts (basic check)
+    if '..' in filename or filename.startswith('/'):
+        abort(400)
+    return send_from_directory(release_dir, filename)
+
+# --- API Endpoints ---
 
 @app.route('/api/apps', methods=['GET'])
 def get_apps():
     """
-    Lists games, checks for uncommitted changes, and retrieves release tags.
+    Lists games based on directory structure, checks for uncommitted changes
+    in the 'working' directory, and retrieves release versions from 'releases' folders.
     """
     apps_data = []
     if not os.path.isdir(GAMES_DIR):
@@ -66,53 +88,52 @@ def get_apps():
         for app_name in os.listdir(GAMES_DIR):
             app_path = os.path.join(GAMES_DIR, app_name)
             if os.path.isdir(app_path):
-                # --- Check git status ---
-                status_stdout, status_stderr, status_exit_code = run_command(f'git status --porcelain "{app_path}"', cwd=REPO_ROOT)
+                working_dir = os.path.join(app_path, 'working')
+                releases_dir = os.path.join(app_path, 'releases')
+
+                # --- Check git status in 'working' directory ---
                 has_updates = False
-                if status_exit_code == 0 and status_stdout:
-                    has_updates = True
-                elif status_exit_code != 0:
-                    print(f"Warning: git status check failed for {app_name}: {status_stderr}", file=sys.stderr)
+                if os.path.isdir(working_dir):
+                    # Check status specifically for the working directory path
+                    status_stdout, status_stderr, status_exit_code = run_command(f'git status --porcelain "{working_dir}{os.sep}"', cwd=REPO_ROOT)
+                    if status_exit_code == 0 and status_stdout:
+                        has_updates = True
+                    elif status_exit_code != 0:
+                        print(f"Warning: git status check failed for {working_dir}: {status_stderr}", file=sys.stderr)
+                else:
+                     print(f"Warning: Working directory not found for {app_name}: {working_dir}", file=sys.stderr)
 
-                # --- Get release tags ---
-                tag_prefix = f"{app_name}-v"
-                tags_stdout, tags_stderr, tags_exit_code = run_command(f'git tag --list "{tag_prefix}*"', cwd=REPO_ROOT)
 
-                all_tags = []
-                latest_tag = None
+                # --- Get release versions from 'releases' subdirectories ---
+                all_versions = []
+                latest_version = None
 
-                if tags_exit_code == 0 and tags_stdout:
-                    # Split tags by newline and filter out empty strings
-                    raw_tags = list(filter(None, tags_stdout.splitlines()))
+                if os.path.isdir(releases_dir):
+                    try:
+                        version_dirs = [d for d in os.listdir(releases_dir) if os.path.isdir(os.path.join(releases_dir, d))]
+                        parsed_versions = []
+                        for v_str in version_dirs:
+                            try:
+                                parsed_versions.append((packaging_version.parse(v_str), v_str))
+                            except packaging_version.InvalidVersion:
+                                print(f"Warning: Could not parse version from directory name '{v_str}' in {app_name}. Skipping.", file=sys.stderr)
 
-                    # Parse and sort tags using packaging.version
-                    parsed_tags = []
-                    for tag in raw_tags:
-                        try:
-                            # Extract version part after prefix (e.g., '1.0.1' from 'app-v1.0.1')
-                            version_str = tag[len(tag_prefix):]
-                            parsed_tags.append((packaging_version.parse(version_str), tag))
-                        except packaging_version.InvalidVersion:
-                            print(f"Warning: Could not parse version from tag '{tag}'. Skipping.", file=sys.stderr)
-                            # Optionally include unparseable tags if needed
-                            # all_tags.append(tag)
+                        # Sort by version, highest first
+                        parsed_versions.sort(key=lambda x: x[0], reverse=True)
 
-                    # Sort by version, highest first
-                    parsed_tags.sort(key=lambda x: x[0], reverse=True)
+                        # Extract sorted version strings
+                        all_versions = [v_str for version, v_str in parsed_versions]
+                        if all_versions:
+                            latest_version = all_versions[0] # Highest version is the first after reverse sort
 
-                    # Extract sorted tag names
-                    all_tags = [tag for version, tag in parsed_tags]
-                    if all_tags:
-                        latest_tag = all_tags[0] # Highest version is the first after reverse sort
-
-                elif tags_exit_code != 0:
-                    print(f"Warning: git tag check failed for {app_name}: {tags_stderr}", file=sys.stderr)
+                    except Exception as e:
+                         print(f"Error reading releases directory for {app_name}: {e}", file=sys.stderr)
 
                 apps_data.append({
                     "name": app_name,
-                    "has_updates": has_updates,
-                    "latest_tag": latest_tag,
-                    "all_tags": all_tags
+                    "has_updates": has_updates, # Indicates uncommitted changes in 'working'
+                    "latest_version": latest_version, # e.g., '1.0.1'
+                    "all_versions": all_versions # List of version strings ['1.0.1', '1.0.0']
                 })
 
         return jsonify(apps_data)
@@ -130,7 +151,8 @@ def create_release():
 
     app_name = data['app_name']
     version_tag = data['version_tag']
-    script_path = os.path.join(SCRIPTS_DIR, 'release_manager.py')
+    # Updated path to release manager script
+    script_path = os.path.join(ADMIN_DIR, 'release_manager.py')
 
     if not os.path.isfile(script_path):
          return jsonify({"error": f"Release script not found: {script_path}"}), 500

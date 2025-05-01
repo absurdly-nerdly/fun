@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balloon Puff Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="balloon-puff.css">
+</head>
+<body>
+    <!-- Audio elements -->
+    <audio id="puffSound" src="sounds/spray-puff-272431.mp3" preload="auto"></audio>
+    <audio id="gameOverSound" src="sounds/retro-explode-2-236688.mp3" preload="auto"></audio>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="message">
+        <!-- Start Screen Content (initially visible) -->
+        <div id="startScreenContent">
+            <h2>Balloon Puff Options</h2>
+            <div>
+                <label>
+                    <input type="checkbox" id="soundToggle" checked> Sound On
+                </label>
+            </div>
+            <div>
+                Difficulty:
+                <label><input type="radio" name="difficulty" value="easy" checked> Easy</label>
+                <label><input type="radio" name="difficulty" value="normal"> Normal</label>
+                <label><input type="radio" name="difficulty" value="hard"> Hard</label>
+            </div>
+            <div>
+                Starting Theme:
+                <select id="themeSelect">
+                    <option value="mountain">Mountain</option>
+                    <option value="city">City</option>
+                    <option value="beach">Beach</option>
+                </select>
+            </div>
+            <button id="startButton">Start Game</button>
+        </div>
+
+        <!-- Game Over Content (initially hidden) -->
+        <div id="gameOverContent" style="display: none;">
+            <span id="messageText">Game Over!</span>
+            <small>(Press SPACE or click Restart)</small>
+            <button id="restartButton">Restart</button>
+        </div>
+    </div>
+
+    <script src="balloon-puff-config.js"></script>
+    <script src="balloon-puff-game.js"></script>
+    <script src="balloon-puff-ui.js"></script>
+</body>
+</html>

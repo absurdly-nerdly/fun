@@ -25,17 +25,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const appItem = button.closest('.app-item');
         const appName = appItem.dataset.appName;
         const versionInput = appItem.querySelector('.version-input');
-        const versionTag = versionInput.value.trim();
+        const versionTag = versionInput.value.trim(); // This is the version string like '1.0.0'
 
         if (!versionTag) {
-            displayMessage('Please enter a version tag (e.g., 1.0.0).', '', true);
+            displayMessage('Please enter a version (e.g., 1.0.0).', '', true);
             versionInput.focus();
             return;
         }
 
         // Basic validation for version format (optional, can be improved)
         if (!/^\d+\.\d+\.\d+$/.test(versionTag)) {
-             displayMessage('Version tag should be in format X.Y.Z (e.g., 1.0.0).', '', true);
+             displayMessage('Version should be in format X.Y.Z (e.g., 1.0.0).', '', true);
              versionInput.focus();
              return;
         }
@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: {
                 'Content-Type': 'application/json',
             },
+            // Send app_name and the version string as version_tag
             body: JSON.stringify({ app_name: appName, version_tag: versionTag }),
         })
         .then(response => response.json())
@@ -56,6 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success) {
                 displayMessage(data.message, data.details || '', false);
                 versionInput.value = ''; // Clear input on success
+                // Reload app list to show new version
+                loadApps();
             } else {
                 displayMessage(data.message || 'An unknown error occurred.', data.details || '', true);
             }
@@ -100,31 +103,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     let statusText = 'Ready to release.';
                     if (app.has_updates) {
                         li.classList.add('has-updates');
-                        statusText = 'Has uncommitted changes (Commit manually before releasing).';
+                        statusText = 'Working directory has uncommitted changes (Commit manually before releasing).';
                     }
 
-                    // Show version information
-                    const versionInfo = app.latest_tag ?
-                        `Latest Release: <span class="latest-tag">${app.latest_tag}</span>` :
+                    // Show version information using latest_version
+                    const versionInfo = app.latest_version ?
+                        `Latest Release: <span class="latest-tag">${app.latest_version}</span>` : // Use latest_version
                         'No releases yet';
+
+                    // Populate dropdown with all_versions
+                    const versionsDropdown = app.all_versions && app.all_versions.length > 0 ? `
+                        <div class="version-selector">
+                            <select class="version-select">
+                                <option value="">Select a version...</option>
+                                ${app.all_versions.map(version => `<option value="${version}">${version}</option>`).join('')}
+                            </select>
+                            <button class="view-version-button">View Version</button>
+                        </div>
+                    ` : '';
 
                     li.innerHTML = `
                         <h2>${app.name}</h2>
                         <div class="version-info">
                             <p>${versionInfo}</p>
-                            ${app.all_tags && app.all_tags.length > 0 ? `
-                                <div class="version-selector">
-                                    <select class="version-select">
-                                        <option value="">Select a version...</option>
-                                        ${app.all_tags.map(tag => `<option value="${tag}">${tag}</option>`).join('')}
-                                    </select>
-                                    <button class="view-version-button">View Version</button>
-                                </div>
-                            ` : ''}
+                            ${versionsDropdown}
                         </div>
                         <p class="status">${statusText}</p>
                         <div class="release-form">
-                            <label for="version-${app.name}">New Version Tag (e.g., 1.0.0):</label>
+                            <label for="version-${app.name}">New Version (e.g., 1.0.0):</label>
                             <input type="text" id="version-${app.name}" class="version-input" placeholder="X.Y.Z">
                             <button class="release-button">Create Release</button>
                         </div>
@@ -142,19 +148,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.view-version-button').forEach(button => {
                     button.addEventListener('click', (event) => {
                         const appItem = event.target.closest('.app-item');
+                        const appName = appItem.dataset.appName;
                         const select = appItem.querySelector('.version-select');
                         const selectedVersion = select.value;
-                        
+
                         if (!selectedVersion) {
                             displayMessage('Please select a version to view.', '', true);
                             return;
                         }
 
-                        // Assuming your Git repository is hosted on GitHub
-                        // You can modify this URL format based on your actual Git hosting service
-                        const repoUrl = 'https://github.com/absurdly-nerdly/fun';
-                        const tagUrl = `${repoUrl}/tree/${selectedVersion}`;
-                        window.open(tagUrl, '_blank');
+                        // Construct URL to the release version served locally
+                        // Assumes entry point is <app_name>.html or index.html
+                        // TODO: Make entry point configurable or detectable?
+                        const entryPoint = `${appName}.html`; // Or 'index.html' if that's standard
+                        const releaseUrl = `/games/${appName}/releases/${selectedVersion}/${entryPoint}`;
+
+                        console.log(`Opening release URL: ${releaseUrl}`);
+                        window.open(releaseUrl, '_blank');
                     });
                 });
             })
