@@ -41,11 +41,11 @@ d:/git/LLM/fun/
         *   Returns JSON: `[{'name': 'app_name', 'has_updates': boolean}, ...]`.
     *   **Endpoint `/api/release` (POST):**
         *   Accepts JSON: `{'app_name': '...', 'version_tag': '...'}`.
-        *   Calls `scripts/release_manager.py` via `subprocess`.
+        *   Calls `admin/release_manager.py` via `subprocess`.
         *   Captures script output.
         *   Returns JSON indicating success/failure.
 
-*   **Release Manager Script (`scripts/release_manager.py`):**
+*   **Release Manager Script (`admin/release_manager.py`):**
     *   Command-line Python script.
     *   Accepts `app_name` and `version_tag` arguments.
     *   Constructs full tag (e.g., `app_name-vX.Y.Z`).

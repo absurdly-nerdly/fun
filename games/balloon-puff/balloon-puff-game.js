@@ -31,7 +31,13 @@ function createLayerElement(x, y, type) { // Removed layer parameter
         baseHeight = 100;
         width = 80;
         color = currentTheme.layer2Color;
-    } else { // Foreground elements (near ground)
+    } else if (type === 'ground-detail-rock') {
+        // Ground detail rocks (small squares near horizon)
+        baseHeight = 10; // Fixed small size
+        width = 15; // Fixed small size
+        color = currentTheme.groundDetailColor; // Use ground detail color
+    }
+    else { // Foreground elements (near ground)
         baseHeight = 50;
         width = 40;
         color = currentTheme.layer3Color;
@@ -40,7 +46,8 @@ function createLayerElement(x, y, type) { // Removed layer parameter
     const heightMultiplier = 0.8 + Math.random() * 0.7; // Vary height
     const height = baseHeight * heightMultiplier;
 
-    return {
+    // Add specific properties based on type
+    const elementProperties = {
         x,
         y: y - (height - baseHeight), // Adjust y so the base is at the intended level
         baseY: y, // Store the base Y for speed calculation
@@ -50,6 +57,13 @@ function createLayerElement(x, y, type) { // Removed layer parameter
         color: color, // Use determined color
         mountainColor: currentTheme.mountainColors[Math.floor(Math.random() * currentTheme.mountainColors.length)] // Assign a random color from the full array
     };
+
+    if (type === 'small-rock') {
+        elementProperties.rockSize = width * (0.8 + Math.random() * 0.4); // Calculate size once
+        elementProperties.rockColor = currentTheme[`rockColor${Math.floor(Math.random() * 2) + 1}`]; // Assign color once
+    }
+
+    return elementProperties;
 }
 
 function drawLayerElement(element, color, type) {
@@ -122,13 +136,13 @@ function drawLayerElement(element, color, type) {
 
         case 'small-rock':
             // Simple rock shape (circle or irregular shape)
-            const rockSize = element.width * (0.8 + Math.random() * 0.4);
-            const rockColor = currentTheme[`rockColor${Math.floor(Math.random() * 2) + 1}`]; // Use rock colors
-            ctx.fillStyle = rockColor;
+            // const rockSize = element.width * (0.8 + Math.random() * 0.4); // Size is now calculated on creation
+            // const rockColor = currentTheme[`rockColor${Math.floor(Math.random() * 2) + 1}`]; // Color is now calculated on creation
+            ctx.fillStyle = element.rockColor; // Use stored rockColor
 
             // Draw a simple circle for now
             ctx.beginPath();
-            ctx.arc(element.x + element.width/2, element.y + element.height - rockSize/2, rockSize/2, 0, Math.PI * 2);
+            ctx.arc(element.x + element.width/2, element.y + element.height - element.rockSize/2, element.rockSize/2, 0, Math.PI * 2); // Use stored rockSize
             ctx.fill();
 
             break;
@@ -147,11 +161,16 @@ function drawLayerElement(element, color, type) {
             ctx.fill();
             break;
 
+        case 'ground-detail-rock':
+            // Draw as a simple rectangle (square)
+            ctx.fillRect(element.x, element.y, element.width, element.height);
+            break;
+
         default:
             // Simple rectangle for unspecified types
             ctx.fillRect(element.x, element.y, element.width, element.height);
+        }
     }
-}
 
 // Update background elements and spawn new ones with depth-based speed
 function updateBackgroundElements(baseSpeed) { // Removed spawnRate and layerNum
@@ -160,41 +179,64 @@ function updateBackgroundElements(baseSpeed) { // Removed spawnRate and layerNum
 
     // Spawn new elements
     if (frameCount % BACKGROUND_SPAWN_RATE === 0) { // Use single spawn rate
-        // Determine spawn Y randomly between horizon and ground
-        const spawnY = horizonY + Math.random() * (groundY - horizonY);
-
-        // Determine element type based on spawn Y (depth)
-        let type;
-        const horizonThreshold = horizonY + (canvas.height - horizonY) * 0.3; // Elements above this are more likely mountains
-
-        if (spawnY < horizonThreshold) {
-            // More likely to be a mountain type (distant or mid)
-            const mountainTypes = currentTheme.layer1Elements.concat(currentTheme.layer2Elements);
-            type = mountainTypes[Math.floor(Math.random() * mountainTypes.length)];
+        // Add a small chance to spawn ground detail rocks near the horizon
+        if (Math.random() < 0.15) { // Adjust probability as needed
+             const spawnY = horizonY + Math.random() * 20; // Spawn very close to the horizon
+             backgroundElements.push(createLayerElement(
+                canvas.width + Math.random() * 100, // Spawn off-screen
+                spawnY,
+                'ground-detail-rock' // Specify the new type
+            ));
         } else {
-            // More likely to be a foreground element
-            const foregroundTypes = currentTheme.layer3Elements;
-            type = foregroundTypes[Math.floor(Math.random() * foregroundTypes.length)];
+            // Determine spawn Y randomly between horizon and ground for other elements
+            const spawnY = horizonY + Math.random() * (groundY - horizonY);
+
+            // Determine element type based on spawn Y (depth)
+            let type;
+            const horizonThreshold = horizonY + (canvas.height - horizonY) * 0.3; // Elements above this are more likely mountains
+
+            if (spawnY < horizonThreshold) {
+                // More likely to be a mountain type (distant or mid)
+                const mountainTypes = currentTheme.layer1Elements.concat(currentTheme.layer2Elements);
+                type = mountainTypes[Math.floor(Math.random() * mountainTypes.length)];
+            } else {
+                // More likely to be a foreground element
+                const foregroundTypes = currentTheme.layer3Elements;
+                type = foregroundTypes[Math.floor(Math.random() * foregroundTypes.length)];
+            }
+
+            // Add a small chance to spawn any type for variety (excluding ground-detail-rock)
+            const allTypesExcludingGroundDetail = currentTheme.layer1Elements.concat(currentTheme.layer2Elements).concat(currentTheme.layer3Elements);
+            if (Math.random() < 0.1) {
+                 type = allTypesExcludingGroundDetail[Math.floor(Math.random() * allTypesExcludingGroundDetail.length)];
+            }
+
+
+            backgroundElements.push(createLayerElement(
+                canvas.width + Math.random() * 100, // Spawn off-screen
+                spawnY,
+                type
+            ));
         }
-
-        // Add a small chance to spawn any type for variety
-        if (Math.random() < 0.1) {
-            const allTypes = currentTheme.layer1Elements.concat(currentTheme.layer2Elements).concat(currentTheme.layer3Elements);
-            type = allTypes[Math.floor(Math.random() * allTypes.length)];
-        }
-
-
-        backgroundElements.push(createLayerElement(
-            canvas.width + Math.random() * 100, // Spawn off-screen
-            spawnY,
-            type
-        ));
     }
 
     // Move existing elements based on their depth (baseY)
+    const horizonSpeedMultiplier = 0.2; // Elements exactly at horizonY move at baseSpeed * 0.2
+
     backgroundElements.forEach(element => {
-        // Calculate speed based on base Y position
-        const speed = baseSpeed * (element.baseY / canvas.height);
+        let speed;
+        if (element.baseY <= horizonY) {
+            // Elements at or above the horizon move at a fixed slow speed
+            speed = baseSpeed * horizonSpeedMultiplier;
+        } else {
+            // Elements below the horizon interpolate speed based on depth
+            const depthBelowHorizon = element.baseY - horizonY;
+            const maxDepth = groundY - horizonY;
+            const depthMultiplier = maxDepth > 0 ? depthBelowHorizon / maxDepth : 0; // 0 at horizon, 1 at ground, handle division by zero
+            // Interpolate between horizonSpeedMultiplier and 1 (full baseSpeed)
+            const speedMultiplier = horizonSpeedMultiplier + depthMultiplier * (1 - horizonSpeedMultiplier);
+            speed = baseSpeed * speedMultiplier;
+        }
         element.x -= speed;
     });
 
@@ -218,9 +260,6 @@ function drawMountainGroundAndHorizon() {
 
     // Add some ground detail (optional, can be enhanced later)
     ctx.fillStyle = currentTheme.groundDetailColor;
-    for(let i = 0; i < canvas.width; i += 30) {
-         ctx.fillRect(i + Math.random()*10, horizonY + Math.random()*20, 15, 10);
-    }
 }
 
 
