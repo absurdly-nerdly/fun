@@ -26,7 +26,7 @@ games/
 
 -   **`games/<app_name>/working/`**: All active development must occur within this directory. The release manager copies files *from* here when creating a new release.
 -   **`games/<app_name>/releases/`**: This directory is managed by the `release_manager.py` script. Do not manually modify its contents. Each subfolder represents a point-in-time snapshot of the `working` directory.
--   **Entry Point:** Ensure each game (both in `working` and each `releases/<version>`) has a clear HTML entry point (e.g., `index.html`, `<app_name>.html`). The main `index.html` at the project root will dynamically link to the latest *released* version of each game, as determined by the `admin_server.py`.
+-   **Entry Point:** Ensure each game (both in `working` and each `releases/<version>`) has a clear HTML entry point (e.g., `index.html`, `<app_name>.html`). The main `index.html` at the project root is automatically updated by `admin/release_manager.py` after each successful release to link to the latest *released* version of each game.
 
 Failure to follow this structure will prevent the Admin Panel from correctly identifying applications, versions, and managing releases.
 

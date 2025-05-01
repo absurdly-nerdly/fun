@@ -63,3 +63,4 @@ You can bypass the Admin Panel and run the script directly:
 -   **Deployment:** This script and the local archiving process do **not** handle deploying your application releases to a web hosting service like GitHub Pages. A separate deployment strategy is needed to make specific release versions accessible online.
 -   **Commit First:** Always commit your code changes *before* creating a release. Tagging uncommitted work can lead to inconsistent release states.
 -   **Tagging Mechanism:** The `git tag` command, as used by the script, applies the version tag to the Git commit that your `HEAD` is currently pointing to. This is typically the most recent commit on your current branch.
+-   **Root Index Update:** After a successful release, the script automatically updates the root `index.html` file to link to the latest released version of all games found in the `games/` directory. This is intended for static hosting like GitHub Pages.
