@@ -179,12 +179,16 @@
         let backgroundElements = []; let clouds = []; let birds = [];
         let sunPosition = { x: 0, y: 0, radius: 30 };
 
-        let puffSynth, gameOverSynth;
-        // --- Sound Setup --- (No changes)
+        let gameSounds;
+        // --- Sound Setup ---
         function setupSounds() {
              if (typeof Tone !== 'undefined') {
-                puffSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.1 } }).toDestination();
-                gameOverSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.005, decay: 0.3, sustain: 0, release: 0.2 } }).toDestination(); // Slightly longer decay/release for explosion
+                gameSounds = new Tone.Players({
+                    "puff": "./sounds/spray-puff-272431.mp3",
+                    "explosion": "./sounds/retro-explode-2-236688.mp3"
+                }, () => {
+                    console.log("Sounds loaded");
+                }).toDestination();
             } else { console.warn("Tone.js not loaded."); soundEnabled = false; if (soundToggle) { soundToggle.checked = false; soundToggle.disabled = true; } }
         }
         setupSounds();
@@ -344,7 +348,7 @@
                 createExplosionParticle(explosionDetails.x, explosionDetails.y);
             }
 
-            if (soundEnabled && gameOverSynth) { Tone.context.resume().then(() => { gameOverSynth.triggerAttackRelease("4n"); }).catch(e => console.error("Audio context error:", e)); } // Longer sound
+            if (soundEnabled && gameSounds && gameSounds.has("explosion")) { Tone.context.resume().then(() => { gameSounds.player("explosion").start(); }).catch(e => console.error("Audio context error:", e)); }
         }
 
         function startGame() { // (No changes)
@@ -355,8 +359,8 @@
          }
         function endGame() { console.warn("endGame() called directly"); gameRunning = false; gameOver = true; isExploding = false; finalScoreDisplay.textContent = `Score: ${score}`; gameOverScreen.style.display = 'flex'; }
         function puffBalloon() { // (No changes)
-             if (!gameRunning || gameOver || isExploding) return; balloon.velocityY = currentDifficultySettings.puffStrength; balloon.stringWaveAmplitude = 5; if (soundEnabled && puffSynth) { Tone.context.resume().then(() => { puffSynth.triggerAttackRelease('C5', '16n'); }).catch(e => console.error("Audio context error:", e)); }
-         }
+             if (!gameRunning || gameOver || isExploding) return; balloon.velocityY = currentDifficultySettings.puffStrength; balloon.stringWaveAmplitude = 5; if (soundEnabled && gameSounds && gameSounds.has("puff")) { Tone.context.resume().then(() => { gameSounds.player("puff").start(); }).catch(e => console.error("Audio context error:", e)); }
+             }
 
         // --- Event Listeners --- (No changes)
         startButton.addEventListener('click', () => { if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') { Tone.start().catch(e => console.error("Tone.start failed:", e)); } startGame(); });
