@@ -202,8 +202,18 @@
             ctx.beginPath(); ctx.arc(balloon.x, balloon.y, balloon.radius, 0, Math.PI * 2); ctx.fillStyle = balloon.color; ctx.fill(); ctx.strokeStyle = balloon.outlineColor; ctx.lineWidth = 3; ctx.stroke();
         }
 
-        function drawObstacles() { // (No changes)
-            obstacles.forEach(obstacle => { if (!(currentTheme === 'mountain' && obstacle.color === '#008000')) { ctx.fillStyle = obstacle.color; ctx.strokeStyle = obstacle.outlineColor || '#000'; ctx.lineWidth = 2; ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height); ctx.strokeRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height); } drawObstacleDetails(obstacle); });
+        function drawObstacles() { // Prevent default rect drawing for beach theme
+            obstacles.forEach(obstacle => {
+                // Draw default rectangle UNLESS it's a mountain tree OR the theme is beach
+                if (!((currentTheme === 'mountain' && obstacle.color === '#008000') || currentTheme === 'beach')) {
+                    ctx.fillStyle = obstacle.color;
+                    ctx.strokeStyle = obstacle.outlineColor || '#000';
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                    ctx.strokeRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                }
+                drawObstacleDetails(obstacle); // Always draw theme-specific details
+            });
         }
 
         function drawObstacleDetails(obstacle) { // (No changes)
