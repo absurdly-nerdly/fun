@@ -386,6 +386,20 @@
         document.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); if (gameRunning && !isExploding) { puffBalloon(); } else if (gameOver && gameOverScreen.style.display === 'flex') { gameOverScreen.style.display = 'none'; startScreen.style.display = 'flex'; gameOver = false; isExploding = false; resizeCanvas(); } else if (!gameRunning && !isExploding && startScreen.style.display === 'flex') { if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') { Tone.start().catch(e => console.error("Tone.start failed:", e)); } startGame(); } } });
         canvas.addEventListener('click', puffBalloon); canvas.addEventListener('touchstart', (e) => { e.preventDefault(); puffBalloon(); }, { passive: false });
 
+        // --- Click on overlay to start/restart ---
+        gameContainer.addEventListener('click', (e) => {
+            // Check if the click target is the gameContainer itself or one of the overlay divs
+            if (e.target === gameContainer || e.target === startScreen || e.target === gameOverScreen) {
+                if (!gameRunning && (startScreen.style.display === 'flex' || gameOverScreen.style.display === 'flex')) {
+                    // If Tone.js is used and context is suspended, resume it first
+                    if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                        Tone.start().catch(err => console.error("Tone.start failed:", err));
+                    }
+                    startGame();
+                }
+            }
+        });
+
         // --- Canvas Resizing --- (No changes)
         function resizeCanvas() { const containerWidth = gameContainer.clientWidth; const containerHeight = gameContainer.clientHeight; canvas.width = containerWidth; canvas.height = containerHeight; sunPosition.x = canvas.width * 0.7; ctx.clearRect(0, 0, canvas.width, canvas.height); if (gameRunning) { drawBackground(); drawObstacles(); drawBalloon(); drawScore(); } else if (isExploding) { drawBackground(); drawObstacles(); drawExplosion(); } else if (gameOver && gameOverScreen.style.display === 'flex') { drawBackground(); drawObstacles(); drawScore(); } else { currentTheme = themeSelect.value; initializeBackground(); drawBackground(); } }
         window.addEventListener('resize', resizeCanvas);
