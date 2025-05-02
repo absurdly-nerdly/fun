@@ -122,6 +122,15 @@
             margin-bottom: 1.5rem;
             font-size: 1rem;
         }
+
+        /* --- Mobile Landscape Adjustments --- */
+        @media (orientation: landscape) {
+            #gameContainer {
+                height: 90vh; /* Prioritize height in landscape */
+                width: auto;  /* Let aspect ratio determine width */
+                max-height: 90vh; /* Ensure it doesn't exceed viewport height */
+            }
+        }
     </style>
 </head>
 <body>
