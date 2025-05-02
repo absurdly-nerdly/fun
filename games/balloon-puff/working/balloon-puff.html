@@ -50,20 +50,21 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            padding: 20px;
+            padding: 10px; /* Reduced padding */
             box-sizing: border-box; /* Include padding in size */
             border-radius: 6px; /* Match container rounding */
             z-index: 10; /* Ensure overlays are on top */
+            overflow-y: auto; /* Allow scrolling if content overflows */
         }
         .overlay h1 {
-            font-size: 2rem; /* Responsive font size */
-            margin-bottom: 1.5rem;
+            font-size: 1.5rem; /* Reduced font size */
+            margin-bottom: 1rem; /* Reduced margin */
         }
         .overlay button, .overlay select, .overlay label {
             font-family: 'Press Start 2P', cursive;
-            font-size: 0.8rem; /* Smaller font for controls */
-            padding: 0.75rem 1.5rem;
-            margin: 0.5rem;
+            font-size: 0.7rem; /* Further reduced font size */
+            padding: 0.5rem 1rem; /* Reduced padding */
+            margin: 0.3rem; /* Reduced margin */
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -84,7 +85,7 @@
             padding: 0.75rem;
         }
         .overlay .options-group {
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem; /* Reduced margin */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -105,7 +106,7 @@
          .overlay .radio-label {
             display: inline-flex; /* Align radio button and label */
             align-items: center;
-            margin: 0.2rem 0.5rem;
+            margin: 0.1rem 0.3rem; /* Reduced margin */
             background: none;
             box-shadow: none;
             padding: 0;
